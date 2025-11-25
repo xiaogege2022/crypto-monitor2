@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>币安合约价格波动率监控</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #e8edf2;
+            height: 100vh;
+            overflow: hidden;
+            padding: 15px;
+        }
+        
+        .container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        /* 头部区域 */
+        .header {
+            background: white;
+            border-radius: 8px;
+            padding: 20px 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+        }
+        
+        .header-top {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            color: #1a1a1a;
+            font-weight: 700;
+            text-align: center;
+        }
+        
+        .connection-status {
+            position: absolute;
+            right: 0;
+            top: 0;
+        }
+        
+        .connection-status {
+            text-align: right;
+        }
+        
+        .status-line {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            justify-content: flex-end;
+            margin-bottom: 3px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .status-dot.connected {
+            background: #52c41a;
+        }
+        
+        .status-dot.disconnected {
+            background: #ff4d4f;
+        }
+        
+        .status-text {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .status-hint {
+            font-size: 11px;
+            color: #8c8c8c;
+            line-height: 1.4;
+        }
+        
+        .header-info {
+            font-size: 13px;
+            color: #595959;
+            line-height: 1.6;
+        }
+        
+        .info-line {
+            margin-bottom: 4px;
+        }
+        
+        .warning-line {
+            color: #ff6600;
+            font-weight: 600;
+        }
+        
+        .notification-bar {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            border-radius: 6px;
+            padding: 12px 20px;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 25%;
+        }
+        
+        .notification-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        .notification-btn {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 6px 20px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .notification-btn:hover {
+            background: #40a9ff;
+        }
+        
+        .notification-btn.enabled {
+            background: #52c41a;
+        }
+        
+        .notification-btn.enabled:hover {
+            background: #73d13d;
+        }
+        
+        /* 币种卡片区域 */
+        .cards-section {
+            display: flex;
+            gap: 15px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .coin-card {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            border: 2px solid transparent;
+            transition: all 0.3s;
+            position: relative;
+            max-width: 380px;
+        }
+        
+        .coin-card.alert {
+            border-color: #ff4d4f;
+        }
+        
+        .bell-icon {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            font-size: 20px;
+            color: #ff4d4f;
+        }
+        
+        .coin-card h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 2px;
+            text-align: center;
+        }
+        
+        .coin-threshold {
+            font-size: 12px;
+            color: #8c8c8c;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .price-label {
+            font-size: 14px;
+            color: #595959;
+            text-align: center;
+            min-width: 80px;
+        }
+        
+        .price-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1890ff;
+        }
+        
+        .price-secondary {
+            font-size: 14px;
+            color: #8c8c8c;
+        }
+        
+        .volatility-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 12px 0;
+        }
+        
+        .volatility-value {
+            font-size: 26px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .volatility-value.positive {
+            color: #52c41a;
+        }
+        
+        .volatility-value.negative {
+            color: #ff4d4f;
+        }
+        
+        .change-value {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        
+        .change-value.positive {
+            color: #ff4d4f;
+        }
+        
+        .change-value.negative {
+            color: #ff4d4f;
+        }
+        
+        .reset-btn {
+            width: 100%;
+            padding: 9px;
+            margin-top: 12px;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .reset-btn:hover {
+            background: #40a9ff;
+        }
+        
+        .reset-btn:disabled {
+            background: #d9d9d9;
+            cursor: not-allowed;
+        }
+        
+        /* 提醒历史区域 */
+        .alerts-section {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            padding: 20px 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        
+        .alerts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-shrink: 0;
+        }
+        
+        .alerts-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .alerts-title h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+        
+        .alerts-count {
+            background: #f0f0f0;
+            color: #1890ff;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        
+        .alerts-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .filter-icon {
+            font-size: 16px;
+            color: #8c8c8c;
+        }
+        
+        .filter-btn {
+            padding: 6px 16px;
+            border: 1px solid #d9d9d9;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+            color: #595959;
+        }
+        
+        .filter-btn:hover {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+        
+        .filter-btn.active {
+            background: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+        
+        .clear-history-btn {
+            padding: 6px 16px;
+            background: #ff4d4f;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .clear-history-btn:hover {
+            background: #ff7875;
+        }
+        
+        .alerts-list {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        
+        .alert-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border-left: 4px solid;
+            background: #fafafa;
+        }
+        
+        .alert-item.up {
+            border-left-color: #52c41a;
+            background: #f6ffed;
+        }
+        
+        .alert-item.down {
+            border-left-color: #ff4d4f;
+            background: #fff1f0;
+        }
+        
+        .alert-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .alert-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .alert-symbol {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+        
+        .alert-badge {
+            background: #f0f0f0;
+            color: #595959;
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .alert-time {
+            color: #8c8c8c;
+            font-size: 12px;
+        }
+        
+        .alert-details {
+            color: #595959;
+            font-size: 13px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #bfbfbf;
+            font-size: 14px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 15px;
+            color: #8c8c8c;
+            font-size: 13px;
+        }
+        
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #1890ff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部区域 -->
+        <div class="header">
+            <div class="header-top">
+                <h1>币安合约价格波动率监控</h1>
+                <div class="connection-status">
+                    <div class="status-line">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span class="status-text" id="statusText">× 连接断开</span>
+                    </div>
+                    <div class="status-hint">
+                        提示: 币安API可能受地区限制<br>
+                        建议使用日本/新加坡等地区的VPN
+                    </div>
+                </div>
+            </div>
+            
+            <div class="header-info">
+                <div class="info-line">📊 数据源: 币安期货合约官方API (wss://fstream.binance.com)</div>
+                <div class="info-line">⚠️ BTC/ETH 波动 ±0.5% 提醒 | SOL 波动 ±1.0% 提醒</div>
+                <div class="info-line warning-line" id="connectionError" style="display: none;">
+                    ⚠️ 连接失败: 可能受地区限制，建议使用日本/新加坡等地区的VPN或代理
+                </div>
+            </div>
+            
+            <div class="notification-bar">
+                <div class="notification-left">
+                    <span>⭕</span>
+                    <span>⚠️ 未设置通知权限</span>
+                </div>
+                <button class="notification-btn" onclick="enableNotifications()">启用桌面通知</button>
+            </div>
+        </div>
+        
+        <!-- 币种卡片区域 -->
+        <div class="cards-section">
+            <div class="coin-card" id="card-BTC">
+                <div class="bell-icon" id="bell-BTC" style="display: none;">🔔</div>
+                <h2>BTC/USDT</h2>
+                <div class="coin-threshold">提醒阈值: ±0.5%</div>
+                <div id="content-BTC">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        等待数据...
+                    </div>
+                </div>
+                <button class="reset-btn" id="reset-BTC" onclick="resetPrice('BTC')" disabled>重置起始价格</button>
+            </div>
+            
+            <div class="coin-card" id="card-ETH">
+                <div class="bell-icon" id="bell-ETH" style="display: none;">🔔</div>
+                <h2>ETH/USDT</h2>
+                <div class="coin-threshold">提醒阈值: ±0.5%</div>
+                <div id="content-ETH">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        等待数据...
+                    </div>
+                </div>
+                <button class="reset-btn" id="reset-ETH" onclick="resetPrice('ETH')" disabled>重置起始价格</button>
+            </div>
+            
+            <div class="coin-card" id="card-SOL">
+                <div class="bell-icon" id="bell-SOL" style="display: none;">🔔</div>
+                <h2>SOL/USDT</h2>
+                <div class="coin-threshold">提醒阈值: ±1%</div>
+                <div id="content-SOL">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        等待数据...
+                    </div>
+                </div>
+                <button class="reset-btn" id="reset-SOL" onclick="resetPrice('SOL')" disabled>重置起始价格</button>
+            </div>
+        </div>
+        
+        <!-- 提醒历史区域 -->
+        <div class="alerts-section">
+            <div class="alerts-header">
+                <div class="alerts-title">
+                    <h2>提醒历史</h2>
+                    <span class="alerts-count" id="alertCount">17 条记录</span>
+                </div>
+                <div class="alerts-controls">
+                    <span class="filter-icon">🔻</span>
+                    <button class="filter-btn active" onclick="filterAlerts('ALL')">全部</button>
+                    <button class="filter-btn" onclick="filterAlerts('BTC')">BTC</button>
+                    <button class="filter-btn" onclick="filterAlerts('ETH')">ETH</button>
+                    <button class="filter-btn" onclick="filterAlerts('SOL')">SOL</button>
+                    <button class="clear-history-btn" onclick="clearAlerts()">清除历史</button>
+                </div>
+            </div>
+            <div class="alerts-list" id="alertsList">
+                <div class="empty-state">暂无 BTC 的提醒记录</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const COINS = ['BTC', 'ETH', 'SOL'];
+        let prices = {};
+        let ws = null;
+        let alerts = [];
+        let currentFilter = 'ALL';
+        let notificationsEnabled = false;
+        let lastAlertTime = {};
+        
+        COINS.forEach(coin => {
+            prices[coin] = {
+                start: 0,
+                current: 0,
+                change: 0,
+                changePercent: 0
+            };
+            lastAlertTime[coin] = 0;
+        });
+        
+        // 初始化
+        window.onload = function() {
+            console.log('🚀 币安波动率监控系统启动...');
+            connectWebSocket();
+        };
+        
+        // 启用通知
+        function enableNotifications() {
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        notificationsEnabled = true;
+                        const btn = document.querySelector('.notification-btn');
+                        btn.classList.add('enabled');
+                        btn.textContent = '已启用通知';
+                        document.querySelector('.notification-left span:last-child').textContent = '✅ 通知权限已启用';
+                        console.log('✅ 桌面通知已启用');
+                    } else {
+                        alert('请在浏览器设置中允许通知权限');
+                    }
+                });
+            } else {
+                alert('您的浏览器不支持桌面通知');
+            }
+        }
+        
+        // 发送桌面通知
+        function sendDesktopNotification(symbol, changePercent, price, direction) {
+            if (!notificationsEnabled || Notification.permission !== 'granted') return;
+            
+            const title = `${symbol} ${direction === 'up' ? '上涨' : '下跌'}提醒`;
+            const body = `当前价格: $${price.toFixed(2)}\n波动率: ${changePercent > 0 ? '+' : ''}${changePercent.toFixed(2)}%`;
+            
+            try {
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: 'https://bin.bnbstatic.com/static/images/common/favicon.ico',
+                    tag: symbol,
+                    requireInteraction: false
+                });
+                
+                setTimeout(() => notification.close(), 5000);
+            } catch (error) {
+                console.error('通知发送失败:', error);
+            }
+        }
+        
+        // 连接WebSocket
+        function connectWebSocket() {
+            try {
+                const streams = COINS.map(coin => `${coin.toLowerCase()}usdt@miniTicker`).join('/');
+                const wsUrl = `wss://fstream.binance.com/stream?streams=${streams}`;
+                
+                console.log('🔌 正在连接:', wsUrl);
+                
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = function() {
+                    console.log('✅ WebSocket连接成功');
+                    document.getElementById('statusDot').className = 'status-dot connected';
+                    document.getElementById('statusText').textContent = '✓ 连接断开';
+                    document.getElementById('connectionError').style.display = 'none';
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.data) {
+                            const ticker = data.data;
+                            const symbol = ticker.s.replace('USDT', '');
+                            const price = parseFloat(ticker.c);
+                            
+                            if (!isNaN(price) && price > 0) {
+                                updatePrice(symbol, price);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('解析消息错误:', error);
+                    }
+                };
+                
+                ws.onerror = function(error) {
+                    console.error('❌ WebSocket错误:', error);
+                    document.getElementById('statusDot').className = 'status-dot disconnected';
+                    document.getElementById('statusText').textContent = '× 连接断开';
+                    document.getElementById('connectionError').style.display = 'block';
+                };
+                
+                ws.onclose = function() {
+                    console.log('WebSocket连接已关闭');
+                    document.getElementById('statusDot').className = 'status-dot disconnected';
+                    document.getElementById('statusText').textContent = '× 连接断开';
+                    document.getElementById('connectionError').style.display = 'block';
+                };
+            } catch (error) {
+                console.error('创建WebSocket失败:', error);
+                document.getElementById('connectionError').style.display = 'block';
+            }
+        }
+        
+        // 更新价格
+        function updatePrice(symbol, price) {
+            if (!prices[symbol].start) {
+                prices[symbol].start = price;
+                console.log(`${symbol} 起始价格: $${price.toFixed(2)}`);
+            }
+            
+            prices[symbol].current = price;
+            prices[symbol].change = price - prices[symbol].start;
+            prices[symbol].changePercent = (prices[symbol].change / prices[symbol].start) * 100;
+            
+            renderCoinCard(symbol);
+            checkAlert(symbol);
+        }
+        
+        // 渲染币种卡片
+        function renderCoinCard(symbol) {
+            const data = prices[symbol];
+            const isPositive = data.changePercent > 0;
+            const decimals = data.current > 1000 ? 2 : 4;
+            
+            const html = `
+                <div class="price-row">
+                    <span class="price-label">当前价格:</span>
+                    <span class="price-value">$${data.current.toFixed(decimals)}</span>
+                </div>
+                <div class="price-row">
+                    <span class="price-label">起始价格:</span>
+                    <span class="price-secondary">$${data.start.toFixed(decimals)}</span>
+                </div>
+                <div class="volatility-row">
+                    <span class="price-label">波动率:</span>
+                    <div class="volatility-value ${isPositive ? 'positive' : 'negative'}">
+                        <span>${isPositive ? '↗' : '↘'}</span>
+                        <span>${isPositive ? '+' : ''}${data.changePercent.toFixed(2)}%</span>
+                    </div>
+                </div>
+                <div class="price-row">
+                    <span class="price-label">价格变化:</span>
+                    <span class="change-value">
+                        ${isPositive ? '+' : ''}$${Math.abs(data.change).toFixed(2)}
+                    </span>
+                </div>
+            `;
+            
+            document.getElementById('content-' + symbol).innerHTML = html;
+            document.getElementById('reset-' + symbol).disabled = false;
+        }
+        
+        // 检查提醒
+        function checkAlert(symbol) {
+            const data = prices[symbol];
+            const absChange = Math.abs(data.changePercent);
+            const threshold = (symbol === 'BTC' || symbol === 'ETH') ? 0.5 : 1.0;
+            
+            const card = document.getElementById('card-' + symbol);
+            const bell = document.getElementById('bell-' + symbol);
+            
+            const isOverThreshold = absChange >= threshold;
+            
+            if (isOverThreshold) {
+                card.classList.add('alert');
+                bell.style.display = 'block';
+                
+                const now = Date.now();
+                const lastTime = lastAlertTime[symbol] || 0;
+                const timeSinceLastAlert = now - lastTime;
+                
+                if (timeSinceLastAlert > 10000) {
+                    const direction = data.changePercent > 0 ? 'up' : 'down';
+                    
+                    addAlert(symbol, data.changePercent, data.current);
+                    lastAlertTime[symbol] = now;
+                    
+                    prices[symbol].start = data.current;
+                    prices[symbol].change = 0;
+                    prices[symbol].changePercent = 0;
+                    
+                    renderCoinCard(symbol);
+                    
+                    card.classList.remove('alert');
+                    bell.style.display = 'none';
+                }
+            } else {
+                card.classList.remove('alert');
+                bell.style.display = 'none';
+            }
+        }
+        
+        // 添加提醒
+        function addAlert(symbol, changePercent, price) {
+            const direction = changePercent > 0 ? 'up' : 'down';
+            const alert = {
+                id: Date.now(),
+                symbol: symbol,
+                changePercent: changePercent,
+                price: price,
+                time: new Date().toLocaleString('zh-CN'),
+                direction: direction
+            };
+            
+            alerts.unshift(alert);
+            if (alerts.length > 50) alerts.pop();
+            
+            sendDesktopNotification(symbol, changePercent, price, direction);
+            renderAlerts();
+        }
+        
+        // 渲染提醒列表
+        function renderAlerts() {
+            const filtered = currentFilter === 'ALL' 
+                ? alerts 
+                : alerts.filter(a => a.symbol === currentFilter);
+            
+            document.getElementById('alertCount').textContent = alerts.length + ' 条记录';
+            
+            const listDiv = document.getElementById('alertsList');
+            
+            if (filtered.length === 0) {
+                listDiv.innerHTML = `<div class="empty-state">暂无 ${currentFilter === 'ALL' ? '' : currentFilter + ' 的'}提醒记录</div>`;
+                return;
+            }
+            
+            listDiv.innerHTML = filtered.map(alert => `
+                <div class="alert-item ${alert.direction}">
+                    <div class="alert-top">
+                        <div class="alert-left">
+                            <span style="font-size: 18px;">${alert.direction === 'up' ? '⚠️' : '⚠️'}</span>
+                            <span class="alert-symbol">${alert.symbol}</span>
+                            <span class="alert-badge">${alert.direction === 'up' ? '上涨' : '下跌'}提醒</span>
+                        </div>
+                        <div class="alert-time">${alert.time}</div>
+                    </div>
+                    <div class="alert-details">
+                        价格: <strong>$${alert.price.toFixed(2)}</strong> | 
+                        波动: <strong style="color: ${alert.changePercent > 0 ? '#52c41a' : '#ff4d4f'};">
+                            ${alert.changePercent > 0 ? '+' : ''}${alert.changePercent.toFixed(2)}%
+                        </strong>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 筛选提醒
+        function filterAlerts(filter) {
+            currentFilter = filter;
+            
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            renderAlerts();
+        }
+        
+        // 清除提醒
+        function clearAlerts() {
+            if (confirm('确定要清除所有提醒历史吗？')) {
+                alerts = [];
+                renderAlerts();
+            }
+        }
+        
+        // 重置价格
+        function resetPrice(symbol) {
+            if (prices[symbol].current) {
+                prices[symbol].start = prices[symbol].current;
+                prices[symbol].change = 0;
+                prices[symbol].changePercent = 0;
+                renderCoinCard(symbol);
+                
+                const card = document.getElementById('card-' + symbol);
+                const bell = document.getElementById('bell-' + symbol);
+                card.classList.remove('alert');
+                bell.style.display = 'none';
+                
+                lastAlertTime[symbol] = 0;
+                console.log(`🔄 ${symbol} 手动重置，起始价格: $${prices[symbol].start.toFixed(2)}`);
+            }
+        }
+    </script>
+</body>
+</html>
